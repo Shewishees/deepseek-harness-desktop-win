@@ -1,0 +1,7 @@
+# Release binaries are uploaded as GitHub Release assets, never committed to Git.
+release/*.zip
+release/*.dmg
+release/*.app/
+
+# macOS metadata
+.DS_Store
