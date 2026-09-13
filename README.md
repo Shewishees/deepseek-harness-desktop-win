@@ -17,6 +17,8 @@ The app persists its own data under `~/.dsh`; replacing the application does not
 - System copy/paste and Markdown editing shortcuts
 - Conversation, project, album and puppy-theme features backed by the Desktop services
 
+Windows x64 is built from the same pinned upstream baseline by the repository's manual Windows workflow. It is intentionally unsigned until a Windows code-signing certificate is configured, so Windows SmartScreen may ask for an extra confirmation.
+
 ## Verification
 
 After download, run:

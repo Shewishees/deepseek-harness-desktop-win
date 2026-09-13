@@ -1,0 +1,82 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub Release tag that receives the installer
+        required: true
+        default: v0.1.3-alpha.2
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package Windows x64 installer
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      # This is intentionally explicit: releases require a certificate unless
+      # this opt-in is present. The published installer will show SmartScreen
+      # warnings until a Windows code-signing certificate is configured.
+      DSH_DESKTOP_ALLOW_UNSIGNED_WINDOWS: '1'
+      DSH_DESKTOP_APP_ID: ai.deepseek.harness.desktop
+      DSH_DESKTOP_TARGET_PLATFORM: win32
+      DSH_DESKTOP_TARGET_ARCH: x64
+      DOWNLOAD_TEST_ORIGIN: https://github.com
+
+    steps:
+      - name: Check out release metadata
+        uses: actions/checkout@v4
+
+      - name: Check out the pinned official Harness baseline
+        uses: actions/checkout@v4
+        with:
+          repository: deepseek-ai/deepseek-harness
+          ref: c389f96bf3a9b6807cb71ed6bdad5849be0df6d8
+          path: source
+
+      - name: Apply Desktop customisation patch
+        shell: pwsh
+        run: |
+          Expand-Archive -Path patches/desktop-customizations.patch.zip -DestinationPath unpacked
+          $patch = 'unpacked/patches/desktop-customizations.patch'
+          git -C source apply --check --binary $patch
+          git -C source apply --binary $patch
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Install dependencies
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+
+      - name: Package unsigned Windows x64 installer
+        working-directory: source
+        run: pnpm run package:desktop:win:x64
+
+      - name: Validate installer presence
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem source/.desktop-build/targets/win-x64/artifacts -Recurse -Filter *.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw 'Windows installer was not produced.' }
+          Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List
+
+      - name: Upload installer to the selected GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = Get-ChildItem source/.desktop-build/targets/win-x64/artifacts -Recurse -Filter *.exe | Select-Object -First 1
+          gh release upload "${{ inputs.release_tag }}" "$($installer.FullName)#DeepSeek-Harness-win-x64.exe" --clobber
