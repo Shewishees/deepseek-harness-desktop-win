@@ -42,7 +42,9 @@ jobs:
         shell: pwsh
         run: |
           Expand-Archive -Path patches/desktop-customizations.patch.zip -DestinationPath unpacked
-          $patch = Get-ChildItem unpacked -Recurse -File -Filter '*.patch' | Select-Object -First 1 -ExpandProperty FullName
+          $patch = Get-ChildItem unpacked -Recurse -File -Filter '*.patch' |
+            Where-Object { -not $_.Name.StartsWith('._') } |
+            Select-Object -First 1 -ExpandProperty FullName
           if ([string]::IsNullOrWhiteSpace($patch)) { throw 'Desktop customisation patch was not found after extraction.' }
           git -C source apply --check --binary $patch
           git -C source apply --binary $patch
