@@ -65,6 +65,14 @@ jobs:
         working-directory: source
         run: pnpm install --frozen-lockfile
 
+      # A source checkout deliberately does not contain generated Typert Remote
+      # contracts under package lib/ directories.  Emit them once before the
+      # aggregate TypeScript build so client packages can resolve their remote
+      # type entry points on a clean Windows runner.
+      - name: Bootstrap generated Remote contracts
+        working-directory: source
+        run: pnpm exec tsdown --env.DSH_BUILD_FACE host
+
       - name: Package unsigned Windows x64 installer
         working-directory: source
         run: pnpm run package:desktop:win:x64
