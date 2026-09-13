@@ -71,7 +71,9 @@ jobs:
       # type entry points on a clean Windows runner.
       - name: Bootstrap generated Remote contracts
         working-directory: source
-        run: pnpm exec tsdown --env.DSH_BUILD_FACE host
+        run: |
+          pnpm exec tsc -p packages/typert/generator/tsconfig.json
+          pnpm exec tsdown --env.DSH_BUILD_FACE host
 
       - name: Package unsigned Windows x64 installer
         working-directory: source
