@@ -242,8 +242,8 @@ try {
     }
 
     Write-Host "编译 Typert Remote 协议与 host 依赖..." -ForegroundColor Gray
-    pnpm exec tsc -p packages/typert/generator/tsconfig.json
-    pnpm exec tsdown --env.DSH_BUILD_FACE host
+    pnpm exec tsc -b packages/typert/generator/tsconfig.json
+    pnpm run build:lib:host
 } finally {
     Pop-Location
 }
