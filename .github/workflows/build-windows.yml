@@ -48,6 +48,12 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($patch)) { throw 'Desktop customisation patch was not found after extraction.' }
           git -C source apply --check --binary $patch
           git -C source apply --binary $patch
+          $primaryCfg = "source/packages/desktop/primary-mode/tsconfig.json"
+          if (Test-Path $primaryCfg) {
+            $cfg = Get-Content $primaryCfg -Raw | ConvertFrom-Json
+            $cfg.references = @(@{ path = "../../../vendor/cordis" })
+            $cfg | ConvertTo-Json -Depth 5 | Set-Content $primaryCfg -Encoding utf8
+          }
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4

@@ -225,6 +225,14 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
+# 修正 primary-mode 宿主 tsconfig，避免循环引用 client 端导致 Remote 协议未生成前类型检查失败
+$primaryCfg = Join-Path $SourceDir "packages/desktop/primary-mode/tsconfig.json"
+if (Test-Path $primaryCfg) {
+    $cfg = Get-Content $primaryCfg -Raw | ConvertFrom-Json
+    $cfg.references = @(@{ path = "../../../vendor/cordis" })
+    $cfg | ConvertTo-Json -Depth 5 | Set-Content $primaryCfg -Encoding utf8
+}
+
 Remove-Item -Path $unpackedDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # -------------------------------------------------------------
