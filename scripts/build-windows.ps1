@@ -318,11 +318,12 @@ try {
 # -------------------------------------------------------------
 Write-Step "6/6 归档安装包产物并生成校验和..."
 
-$artifactsDir = Join-Path $SourceDir ".desktop-build/targets/win-x64/artifacts"
-$installer = Get-ChildItem -Path $artifactsDir -Recurse -Filter "*.exe" | Select-Object -First 1
+$installer = Get-ChildItem -Path $SourceDir -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notmatch '__uninstaller' -and $_.DirectoryName -notmatch 'win-unpacked' -and $_.DirectoryName -match 'artifacts' } |
+    Select-Object -First 1
 
 if (-not $installer) {
-    throw "未在 $artifactsDir 找到生成的 .exe 安装程序！"
+    throw "未在 $SourceDir 中找到生成的 Windows 安装程序 (.exe)！"
 }
 
 if (-not (Test-Path $OutputDir)) {

@@ -122,27 +122,35 @@ jobs:
       - name: Validate installer presence
         shell: pwsh
         run: |
-          $installer = Get-ChildItem source/.desktop-build/targets/win-x64/artifacts -Recurse -Filter *.exe | Select-Object -First 1
+          $installer = Get-ChildItem source -Recurse -Filter *.exe |
+            Where-Object { $_.Name -notmatch '__uninstaller' -and $_.DirectoryName -notmatch 'win-unpacked' -and $_.DirectoryName -match 'artifacts' } |
+            Select-Object -First 1
           if ($null -eq $installer) { throw 'Windows installer was not produced.' }
+          Write-Host "Found Windows installer: $($installer.FullName)"
           Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List
 
       - name: Upload installer to Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: DeepSeek-Harness-win-x64
-          path: source/.desktop-build/targets/win-x64/artifacts/*.exe
+          path: |
+            source/apps/desktop/.desktop-build/targets/win-x64/artifacts/*.exe
+            !source/apps/desktop/.desktop-build/targets/win-x64/artifacts/*__uninstaller.exe
 
       - name: Upload installer to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $installer = Get-ChildItem source/.desktop-build/targets/win-x64/artifacts -Recurse -Filter *.exe | Select-Object -First 1
+          $installer = Get-ChildItem source -Recurse -Filter *.exe |
+            Where-Object { $_.Name -notmatch '__uninstaller' -and $_.DirectoryName -notmatch 'win-unpacked' -and $_.DirectoryName -match 'artifacts' } |
+            Select-Object -First 1
+          if ($null -eq $installer) { throw 'Windows installer not found for release upload.' }
           $tag = "${{ inputs.release_tag }}"
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Release $tag does not exist yet. Creating release..."
-            gh release create $tag "$($installer.FullName)#DeepSeek-Harness-win-x64.exe" --title "DeepSeek Harness Desktop $tag" --notes "DeepSeek Harness Desktop Windows x64 unsigned release installer."
+            gh release create $tag "$($installer.FullName)#DeepSeek-Harness-win-x64.exe" --title "DeepSeek Harness Desktop $tag" --notes "DeepSeek Harness Desktop Windows x64 release installer."
           } else {
             Write-Host "Release $tag found. Uploading asset..."
             gh release upload $tag "$($installer.FullName)#DeepSeek-Harness-win-x64.exe" --clobber
