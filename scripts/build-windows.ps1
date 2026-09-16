@@ -233,12 +233,47 @@ if (Test-Path $primaryCfg) {
     $cfg | ConvertTo-Json -Depth 5 | Set-Content $primaryCfg -Encoding utf8
 }
 
+# 补充桌面端插件在 tsconfig.client.json 中的完整项目引用（包含宿主与客户端双端，确保 tsdown 打包时 lib/types/index.js 存在）
+$clientCfg = Join-Path $SourceDir "tsconfig.client.json"
+if (Test-Path $clientCfg) {
+    $cfg = Get-Content $clientCfg -Raw | ConvertFrom-Json
+    $desktopRefs = @(
+        @{ path = "./packages/desktop/primary-mode/tsconfig.json" },
+        @{ path = "./packages/desktop/primary-mode/tsconfig.client.json" },
+        @{ path = "./packages/desktop/puppy-theme/tsconfig.json" },
+        @{ path = "./packages/desktop/puppy-theme/tsconfig.client.json" },
+        @{ path = "./packages/desktop/code-workspace/tsconfig.json" },
+        @{ path = "./packages/desktop/code-workspace/tsconfig.client.json" },
+        @{ path = "./packages/desktop/code-insights/tsconfig.json" },
+        @{ path = "./packages/desktop/code-insights/tsconfig.client.json" }
+    )
+    $filtered = @()
+    foreach ($r in $cfg.references) {
+        if ($r.path -notmatch 'packages/desktop') {
+            $filtered += $r
+        }
+    }
+    $webIdx = -1
+    for ($i = 0; $i -lt $filtered.Count; $i++) {
+        if ($filtered[$i].path -eq './apps/web') {
+            $webIdx = $i
+            break
+        }
+    }
+    if ($webIdx -ge 0) {
+        $cfg.references = @($filtered[0..($webIdx - 1)]) + $desktopRefs + @($filtered[$webIdx..($filtered.Count - 1)])
+    } else {
+        $cfg.references = $filtered + $desktopRefs
+    }
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content $clientCfg -Encoding utf8
+}
+
 Remove-Item -Path $unpackedDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # -------------------------------------------------------------
 # 步骤 4: 安装依赖与构建协议层
 # -------------------------------------------------------------
-Write-Step "4/6 安装依赖并预生成 Remote 协议..."
+Write-Step "4/6 安装依赖并预生成 Remote 协议与桌面宿主端..."
 
 Push-Location $SourceDir
 try {
@@ -252,6 +287,9 @@ try {
     Write-Host "编译 Typert Remote 协议与 host 依赖..." -ForegroundColor Gray
     pnpm exec tsc -b packages/typert/generator/tsconfig.json
     pnpm run build:lib:host
+
+    Write-Host "预编译桌面插件宿主入口 (lib/types/index.js)..." -ForegroundColor Gray
+    pnpm exec tsc -b packages/desktop/primary-mode/tsconfig.json packages/desktop/puppy-theme/tsconfig.json packages/desktop/code-workspace/tsconfig.json packages/desktop/code-insights/tsconfig.json
 } finally {
     Pop-Location
 }

@@ -54,6 +54,39 @@ jobs:
             $cfg.references = @(@{ path = "../../../vendor/cordis" })
             $cfg | ConvertTo-Json -Depth 5 | Set-Content $primaryCfg -Encoding utf8
           }
+          $clientCfg = "source/tsconfig.client.json"
+          if (Test-Path $clientCfg) {
+            $cfg = Get-Content $clientCfg -Raw | ConvertFrom-Json
+            $desktopRefs = @(
+              @{ path = "./packages/desktop/primary-mode/tsconfig.json" },
+              @{ path = "./packages/desktop/primary-mode/tsconfig.client.json" },
+              @{ path = "./packages/desktop/puppy-theme/tsconfig.json" },
+              @{ path = "./packages/desktop/puppy-theme/tsconfig.client.json" },
+              @{ path = "./packages/desktop/code-workspace/tsconfig.json" },
+              @{ path = "./packages/desktop/code-workspace/tsconfig.client.json" },
+              @{ path = "./packages/desktop/code-insights/tsconfig.json" },
+              @{ path = "./packages/desktop/code-insights/tsconfig.client.json" }
+            )
+            $filtered = @()
+            foreach ($r in $cfg.references) {
+              if ($r.path -notmatch 'packages/desktop') {
+                $filtered += $r
+              }
+            }
+            $webIdx = -1
+            for ($i = 0; $i -lt $filtered.Count; $i++) {
+              if ($filtered[$i].path -eq './apps/web') {
+                $webIdx = $i
+                break
+              }
+            }
+            if ($webIdx -ge 0) {
+              $cfg.references = @($filtered[0..($webIdx - 1)]) + $desktopRefs + @($filtered[$webIdx..($filtered.Count - 1)])
+            } else {
+              $cfg.references = $filtered + $desktopRefs
+            }
+            $cfg | ConvertTo-Json -Depth 10 | Set-Content $clientCfg -Encoding utf8
+          }
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -73,12 +106,14 @@ jobs:
 
       # A source checkout deliberately does not contain generated Typert Remote
       # contracts under package lib/ directories. Build host libraries and run
-      # tsdown host pass once to emit the model-driven Remote contracts.
+      # tsdown host pass once to emit the model-driven Remote contracts, and
+      # pre-compile the Desktop host package index entries so tsdown finds lib/types/index.js.
       - name: Bootstrap generated Remote contracts
         working-directory: source
         run: |
           pnpm exec tsc -b packages/typert/generator/tsconfig.json
           pnpm run build:lib:host
+          pnpm exec tsc -b packages/desktop/primary-mode/tsconfig.json packages/desktop/puppy-theme/tsconfig.json packages/desktop/code-workspace/tsconfig.json packages/desktop/code-insights/tsconfig.json
 
       - name: Package unsigned Windows x64 installer
         working-directory: source
